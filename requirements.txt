@@ -1,0 +1,10 @@
+ffmpeg
+pytube
+tqdm
+ctranslate2
+pandas
+openpyxl
+kss
+mecab-ko-msvc
+mecab-ko-dic-msvc
+streamlit
