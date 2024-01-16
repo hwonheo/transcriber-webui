@@ -1,5 +1,8 @@
 # Transcriber-WebUI
 
+![image](https://github.com/hwonheo/transcriber-webui/assets/109127356/8969ab80-6b31-4b2e-96b9-70f31181e37a)
+
+
 
 # *Overview*
 ## *Transcriber-WebUI is a tool that extracts audio from YouTube videos and utilizes OpenAI's Whisper for speech-to-text (STT) conversion. Designed for user convenience, it is implemented as a Streamlit app.*
