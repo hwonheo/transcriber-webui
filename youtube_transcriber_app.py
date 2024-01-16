@@ -1,4 +1,5 @@
 import streamlit as st
+import threading
 import os
 import pandas as pd
 from pytube import YouTube
@@ -9,6 +10,7 @@ import kss
 from urllib.parse import urlparse, parse_qs
 import csv
 import json
+
 
 # Define Whisper model sizes and output formats
 WHISPER_MODEL_SIZES = ["tiny", "base", "small", "medium", "large", "large-v2", "large-v3"]
@@ -56,7 +58,7 @@ class YouTubeTranscriber:
 
     def save_transcription(self, sentences, output_dir):
         """Saves the transcribed text in the specified output format."""
-        output_path = os.path.join(output_dir, f"whisper_dialog_{self.video_id}.{self.output_format}")
+        output_path = os.path.join(output_dir, f"transcribed_{self.video_id}.{self.output_format}")
 
         if self.output_format == 'tsv':
             with open(output_path, "w", newline='', encoding='utf-8') as file:
@@ -150,21 +152,29 @@ def get_youtube_title(url):
 # Streamlit app main function
 def main():
     st.title("YouTube Transcriber")
-    st.subheader('_Transcribe YouTube Scrpts simply using Whisper Large-v3_', divider='rainbow')
+    st.subheader("Transcribe YouTube Scripts using Whisper Large-v2 or v3", divider='red')
 
     # Sidebar settings
     with st.sidebar:
-        st.header('_Transcriber Settings_', divider='rainbow')
-        st.markdown("\n")
-        model_size = st.sidebar.selectbox("Choose Whisper Model Size", WHISPER_MODEL_SIZES, index=6)
-        st.markdown("\n")
-        language = st.sidebar.selectbox("Choose Language", ["ko", "en", "jp", "cn", None], index=4)
-        st.markdown("\n")
-        temperature = st.sidebar.slider("Set Temperature", 0.0, 1.0, 0.0)
-        st.markdown("\n")
-        output_format = st.sidebar.selectbox("Output Format", OUTPUT_FORMATS)
-        st.markdown("\n")
-        output_dir = st.sidebar.text_input("Output Directory", value="output")
+        st.header("\n")
+        st.subheader("Whisper Settings", divider='red')
+        model_size = st.selectbox(
+            "Choose Whisper Model Size", WHISPER_MODEL_SIZES, index=5
+        )
+        language = st.selectbox(
+            "Choose Language", ["ko", "en", "jp", "cn", None], index=0
+        )
+        temperature = st.slider(
+            "Set Temperature", 0.0, 1.0, 0.0
+        )
+        st.header("\n")
+        st.subheader("Output Settings", divider='red')
+        output_format = st.selectbox(
+            "Output Format", OUTPUT_FORMATS
+        )
+        output_dir = st.text_input(
+            "Output Directory", value="output"
+        )
 
     # Main page
     url = st.text_input("Enter YouTube URL")
@@ -172,29 +182,51 @@ def main():
         video_id = extract_video_id_from_url(url)
         video_title = get_youtube_title(url)
         if video_id and video_title:
-            thumbnail_url = f"https://img.youtube.com/vi/{video_id}/maxresdefault.jpg"
+            thumbnail_url = (
+                f"https://img.youtube.com/vi/{video_id}/maxresdefault.jpg"
+            )
             st.image(thumbnail_url, caption=video_title)
 
-    uploaded_file = st.file_uploader("Or Upload File (Excel/CSV/Text)", type=["xlsx", "xls", "csv", "txt"])
+    uploaded_file = st.file_uploader(
+        "or Upload File (Excel/CSV/Text)", type=["xlsx", "xls", "csv", "txt"]
+    )
 
-    if st.button("Transcribe YouTube Video"):
-        urls = []
-        if uploaded_file:
-            urls = extract_urls_from_file(uploaded_file)
-        
-        if url:
-            urls.append(url)
+    if st.button("Transcribe YouTube Video", type="primary"):
+        with st.spinner("Processing... Please wait."):
+            urls = []
+            if uploaded_file:
+                urls = extract_urls_from_file(uploaded_file)
+            
+            if url:
+                urls.append(url)
 
-        for url in urls:
-            if not validate_youtube_url(url):
-                st.error(f"Invalid YouTube URL: {url}")
-                continue
+            for url in urls:
+                if not validate_youtube_url(url):
+                    st.error(f"Invalid YouTube URL: {url}")
+                    continue
 
-            output_file_path = transcribe_and_save(url, model_size, temperature, output_format, output_dir, language)
-            if output_file_path:
-                st.success(f"Transcription saved to {output_file_path}")
-                with open(output_file_path, "rb") as file:
-                    st.download_button("Download Transcription", file, file_name=os.path.basename(output_file_path))
+                def process_url():
+                    return transcribe_and_save(
+                        url, model_size, temperature, 
+                        output_format, output_dir, language
+                    )
+
+                # Process transcription in a background thread
+                thread = threading.Thread(target=process_url)
+                thread.start()
+                thread.join()
+
+                output_file_path = process_url()
+                if output_file_path and os.path.exists(output_file_path):
+                    st.success(f"Transcription saved to {output_file_path}")
+                    with open(output_file_path, "rb") as file:
+                        st.download_button(
+                            "Download Transcription", 
+                            file, 
+                            file_name=os.path.basename(output_file_path)
+                        )
+                else:
+                    st.error("Failed to save transcription.")
 
 if __name__ == "__main__":
     main()
