@@ -1,6 +1,6 @@
 torch
 openai-whisper
-ffmpeg
+ffmpeg-python
 pytube
 tqdm
 ctranslate2
