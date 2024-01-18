@@ -1,3 +1,5 @@
+torch
+openai-whisper
 ffmpeg
 pytube
 tqdm
